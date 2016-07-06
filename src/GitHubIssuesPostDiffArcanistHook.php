@@ -19,7 +19,7 @@
 #
 # - Updates the labels for the issue to reflect the current state
 # - If the labels changed, also posts a comment to the thread linking to the diff.
-class GitHubIssuesArcanistHook {
+class GitHubIssuesPostDiffArcanistHook {
   private $workflow;
   private $console;
   private $githubToken;

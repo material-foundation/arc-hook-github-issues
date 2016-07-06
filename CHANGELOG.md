@@ -1,3 +1,8 @@
+# 0.2.0
+
+- Renamed the hook class to GitHubIssuesPostDiffArcanistHook.
+- Fleshed out README.md.
+
 # 0.1.0
 
 - Initial release.
