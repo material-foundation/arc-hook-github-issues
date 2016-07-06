@@ -1,6 +1,8 @@
-# release-candidate
+# 0.2.0
 
- TODO: Enumerate changes.
+- Renamed the hook class to GitHubIssuesPostDiffArcanistHook.
+- Fleshed out README.md.
+
 # 0.1.0
 
 - Initial release.
