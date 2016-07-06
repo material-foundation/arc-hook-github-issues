@@ -9,7 +9,7 @@
 phutil_register_library_map(array(
   '__library_version__' => 2,
   'class' => array(
-    'ArcanistGitHubHook' => 'src/ArcanistGitHubHook.php',
+    'GitHubIssuesPostDiffArcanistHook' => 'src/GitHubIssuesPostDiffArcanistHook.php',
   ),
   'function' => array(),
   'xmap' => array(),
