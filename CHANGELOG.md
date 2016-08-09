@@ -1,3 +1,8 @@
+# 0.3.0
+
+- arc-hook-conphig v2.0.0 compatibility updates.
+- Minor: removed arcanist configuration files.
+
 # 0.2.0
 
 - Renamed the hook class to GitHubIssuesPostDiffArcanistHook.
