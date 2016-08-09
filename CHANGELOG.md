@@ -1,3 +1,6 @@
+# release-candidate
+
+ TODO: Enumerate changes.
 # 0.2.0
 
 - Renamed the hook class to GitHubIssuesPostDiffArcanistHook.
