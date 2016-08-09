@@ -25,13 +25,13 @@ to the phabricator review.
 Add this repository as a git submodule to the .arc-hooks directory in your project.
 
     git submodule init
-    git submodule add https://github.com/material-foundation/arc-hook-github-issues.git .arc-hooks/post-diff/arc-hook-github-issues
+    git submodule add https://github.com/material-foundation/arc-hook-github-issues.git arc-hook-github-issues
 
 Your `.arcconfig` should list the hook in the `load` configuration:
 
     {
       "load": [
-        ".arc-hooks/post-diff/arc-hook-github-issues"
+        "arc-hook-github-issues"
       ]
     }
 
