@@ -41,6 +41,10 @@ class GitHubIssuesPostDiffArcanistHook {
   );
   private $readyLabelsToAdd = array('flow: In review');
 
+  public static function hookType() {
+    return 'post-diff';
+  }
+
   public function doHook(ArcanistDiffWorkflow $workflow) {
     $this->workflow = $workflow;
     $this->console = PhutilConsole::getConsole();
