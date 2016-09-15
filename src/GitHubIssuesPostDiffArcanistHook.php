@@ -41,6 +41,9 @@ class GitHubIssuesPostDiffArcanistHook {
   );
   private $readyLabelsToAdd = array('flow: In review');
 
+  private $changesPlannedColumnName = 'In Progress';
+  private $readyColumnName = 'In Review';
+
   public static function hookType() {
     return 'post-diff';
   }
@@ -79,54 +82,161 @@ class GitHubIssuesPostDiffArcanistHook {
   # Updates labels and posts a comment with a link to the diff if the labels changed.
   private function updateIssue($owner, $repo, $issueID) {
     if ($this->changesPlanned) {
+      $destination_column = $this->changesPlannedColumnName;
       $remove = $this->changesPlannedLabelsToRemove;
       $add = $this->changesPlannedLabelsToAdd;
       $comment = "💻 I'm working on a diff at ".$this->uri;
 
     } else {
+      $destination_column = $this->readyColumnName;
       $remove = $this->readyLabelsToRemove;
       $add = $this->readyLabelsToAdd;
       $comment = "🎊 My diff is ready for review at ".$this->uri;
     }
 
-    $this->console->writeOut("github: Getting labels for issue %s...\n", $issueID);
-
-    $ch = $this->createCurlRequest("repos/$owner/$repo/issues/$issueID/labels");
+    $ch = $this->createProjectCurlRequest("repos/$owner/$repo/projects");
     $server_output = curl_exec($ch);
     curl_close($ch);
     if (!$this->checkCurlResponse($server_output)) {
       return;
     }
     $response = json_decode($server_output, TRUE);
-    $existingLabels = array();
-    foreach ($response as $label) {
-      $existingLabels []= $label['name'];
+    $project_number = null;
+    foreach ($response as $project) {
+      if ($project['name'] == 'Current sprint') {
+        $project_number = $project['number'];
+        break;
+      }
     }
 
-    $labels = array_unique(array_merge($existingLabels, $add));
-    $labels = array_values(array_diff($labels, $remove));
+    if ($project_number) {
+      $this->console->writeOut("github: Enumerating columns in current sprint...\n");
 
-    if (count(array_diff($labels, $existingLabels))) {
-      $this->console->writeOut("github: Setting labels %s to issue #%s\n", implode(', ', $labels), $issueID);
-
-      $ch = $this->createCurlRequest("repos/$owner/$repo/issues/$issueID/labels");
-      curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
-      curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($labels));
+      $ch = $this->createProjectCurlRequest("repos/$owner/$repo/projects/$project_number/columns");
       $server_output = curl_exec($ch);
       curl_close($ch);
       if (!$this->checkCurlResponse($server_output)) {
         return;
       }
+      $columns = json_decode($server_output, TRUE);
 
-      $this->console->writeOut("github: Posting to thread for issue #%s\n", $issueID);
+      $column_name_to_id = array();
+      foreach ($columns as $column) {
+        $column_name_to_id[$column['name']] = $column['id'];
+      }
+      if (!array_key_exists($destination_column, $column_name_to_id)) {
+        $this->console->writeOut("github: Unable to find column named %s. Aborting!\n", $destination_column);
+        return;
+      }
 
-      $ch = $this->createCurlRequest("repos/$owner/$repo/issues/$issueID/comments");
-      curl_setopt($ch, CURLOPT_POST, 1);
-      curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array('body' => $comment)));
+      $this->console->writeOut("github: Searching for card with issue #%s...\n", $issueID);
+      $issue_url = "https://api.github.com/repos/$owner/$repo/issues/$issueID";
+      $issue_card_id = null;
+      $issue_column_id = null;
+      foreach ($columns as $column) {
+        $ch = $this->createProjectCurlRequest("repos/$owner/$repo/projects/columns/".$column['id'].'/cards');
+        $server_output = curl_exec($ch);
+        curl_close($ch);
+        if (!$this->checkCurlResponse($server_output)) {
+          return;
+        }
+        $cards = json_decode($server_output, TRUE);
+        foreach ($cards as $card) {
+          if ($card['content_url'] == $issue_url) {
+            $issue_card_id = $card['id'];
+            $issue_column_id = $column['id'];
+            break;
+          }
+        }
+        if ($issue_card_id) {
+          break;
+        }
+      }
+      
+      if ($issue_card_id) {
+        // Only move the card if it's in the wrong column.
+        if ($issue_column_id != $column_name_to_id[$destination_column]) {
+          $this->console->writeOut("github: Moving card to %s...\n", $destination_column);
+
+          $ch = $this->createProjectCurlRequest("repos/$owner/$repo/projects/columns/cards/$issue_card_id/moves");
+          curl_setopt($ch, CURLOPT_POST, 1);
+          curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array(
+            'position' => 'top',
+            'column_id' => $column_name_to_id[$destination_column]
+          )));
+          $server_output = curl_exec($ch);
+          curl_close($ch);
+          if (!$this->checkCurlResponse($server_output)) {
+            return;
+          }
+        }
+
+      } else {
+        $this->console->writeOut("github: Getting issue #%s id...\n", $issueID);
+
+        $ch = $this->createCurlRequest("repos/$owner/$repo/issues/$issueID");
+        $server_output = curl_exec($ch);
+        curl_close($ch);
+        if (!$this->checkCurlResponse($server_output)) {
+          return;
+        }
+        $issue = json_decode($server_output, TRUE);
+
+        $this->console->writeOut("github: Creating card on column %s...\n", $destination_column);
+
+        $ch = $this->createProjectCurlRequest("repos/$owner/$repo/projects/columns/".$column_name_to_id[$destination_column]."/cards");
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array(
+          'content_id' => $issue['id'],
+          'content_type' => 'Issue'
+        )));
+        $server_output = curl_exec($ch);
+        curl_close($ch);
+        if (!$this->checkCurlResponse($server_output)) {
+          return;
+        }
+      }
+
+    } else {
+      $this->console->writeOut("github: Getting labels for issue %s...\n", $issueID);
+
+      $ch = $this->createCurlRequest("repos/$owner/$repo/issues/$issueID/labels");
       $server_output = curl_exec($ch);
       curl_close($ch);
       if (!$this->checkCurlResponse($server_output)) {
         return;
+      }
+      $response = json_decode($server_output, TRUE);
+      $existingLabels = array();
+      foreach ($response as $label) {
+        $existingLabels []= $label['name'];
+      }
+
+      $labels = array_unique(array_merge($existingLabels, $add));
+      $labels = array_values(array_diff($labels, $remove));
+
+      if (count(array_diff($labels, $existingLabels))) {
+        $this->console->writeOut("github: Setting labels %s to issue #%s\n", implode(', ', $labels), $issueID);
+
+        $ch = $this->createCurlRequest("repos/$owner/$repo/issues/$issueID/labels");
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($labels));
+        $server_output = curl_exec($ch);
+        curl_close($ch);
+        if (!$this->checkCurlResponse($server_output)) {
+          return;
+        }
+
+        $this->console->writeOut("github: Posting to thread for issue #%s\n", $issueID);
+
+        $ch = $this->createCurlRequest("repos/$owner/$repo/issues/$issueID/comments");
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array('body' => $comment)));
+        $server_output = curl_exec($ch);
+        curl_close($ch);
+        if (!$this->checkCurlResponse($server_output)) {
+          return;
+        }
       }
     }
 
@@ -159,6 +269,18 @@ class GitHubIssuesPostDiffArcanistHook {
     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
       "Authorization: token ".$this->githubToken,
       "Accept: application/vnd.github.v3+json"
+    ));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    return $ch;
+  }
+
+  private function createProjectCurlRequest($query) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "https://api.github.com/$query");
+    curl_setopt($ch, CURLOPT_USERAGENT, 'arc-github-labeler');
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+      "Authorization: token ".$this->githubToken,
+      "Accept: application/vnd.github.inertia-preview+json"
     ));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     return $ch;
