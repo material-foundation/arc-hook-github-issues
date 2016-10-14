@@ -153,6 +153,8 @@ class GitHubIssuesPostDiffArcanistHook {
         }
       }
       
+      $should_post_comment = false;
+
       if ($issue_card_id) {
         // Only move the card if it's in the wrong column.
         if ($issue_column_id != $column_name_to_id[$destination_column]) {
@@ -169,6 +171,7 @@ class GitHubIssuesPostDiffArcanistHook {
           if (!$this->checkCurlResponse($server_output)) {
             return;
           }
+          $should_post_comment = true;
         }
 
       } else {
@@ -195,6 +198,7 @@ class GitHubIssuesPostDiffArcanistHook {
         if (!$this->checkCurlResponse($server_output)) {
           return;
         }
+        $should_post_comment = true;
       }
 
     } else {
@@ -226,17 +230,20 @@ class GitHubIssuesPostDiffArcanistHook {
         if (!$this->checkCurlResponse($server_output)) {
           return;
         }
+        $should_post_comment = true;
+      }
+    }
 
-        $this->console->writeOut("github: Posting to thread for issue #%s\n", $issueID);
+    if ($should_post_comment) {
+      $this->console->writeOut("github: Posting to thread for issue #%s\n", $issueID);
 
-        $ch = $this->createCurlRequest("repos/$owner/$repo/issues/$issueID/comments");
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array('body' => $comment)));
-        $server_output = curl_exec($ch);
-        curl_close($ch);
-        if (!$this->checkCurlResponse($server_output)) {
-          return;
-        }
+      $ch = $this->createCurlRequest("repos/$owner/$repo/issues/$issueID/comments");
+      curl_setopt($ch, CURLOPT_POST, 1);
+      curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array('body' => $comment)));
+      $server_output = curl_exec($ch);
+      curl_close($ch);
+      if (!$this->checkCurlResponse($server_output)) {
+        return;
       }
     }
 
