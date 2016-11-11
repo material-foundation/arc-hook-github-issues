@@ -101,18 +101,18 @@ class GitHubIssuesPostDiffArcanistHook {
       return;
     }
     $response = json_decode($server_output, TRUE);
-    $project_number = null;
+    $project_id = null;
     foreach ($response as $project) {
       if ($project['name'] == 'Current sprint') {
-        $project_number = $project['number'];
+        $project_id = $project['id'];
         break;
       }
     }
 
-    if ($project_number) {
+    if ($project_id) {
       $this->console->writeOut("github: Enumerating columns in current sprint...\n");
 
-      $ch = $this->createProjectCurlRequest("repos/$owner/$repo/projects/$project_number/columns");
+      $ch = $this->createProjectCurlRequest("projects/$project_id/columns");
       $server_output = curl_exec($ch);
       curl_close($ch);
       if (!$this->checkCurlResponse($server_output)) {
@@ -134,7 +134,7 @@ class GitHubIssuesPostDiffArcanistHook {
       $issue_card_id = null;
       $issue_column_id = null;
       foreach ($columns as $column) {
-        $ch = $this->createProjectCurlRequest("repos/$owner/$repo/projects/columns/".$column['id'].'/cards');
+        $ch = $this->createProjectCurlRequest("projects/$project_id/columns/".$column['id'].'/cards');
         $server_output = curl_exec($ch);
         curl_close($ch);
         if (!$this->checkCurlResponse($server_output)) {
@@ -160,7 +160,7 @@ class GitHubIssuesPostDiffArcanistHook {
         if ($issue_column_id != $column_name_to_id[$destination_column]) {
           $this->console->writeOut("github: Moving card to %s...\n", $destination_column);
 
-          $ch = $this->createProjectCurlRequest("repos/$owner/$repo/projects/columns/cards/$issue_card_id/moves");
+          $ch = $this->createProjectCurlRequest("projects/$project_id/columns/cards/$issue_card_id/moves");
           curl_setopt($ch, CURLOPT_POST, 1);
           curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array(
             'position' => 'top',
@@ -187,7 +187,7 @@ class GitHubIssuesPostDiffArcanistHook {
 
         $this->console->writeOut("github: Creating card on column %s...\n", $destination_column);
 
-        $ch = $this->createProjectCurlRequest("repos/$owner/$repo/projects/columns/".$column_name_to_id[$destination_column]."/cards");
+        $ch = $this->createProjectCurlRequest("projects/$project_id/columns/".$column_name_to_id[$destination_column]."/cards");
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array(
           'content_id' => $issue['id'],
