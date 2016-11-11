@@ -134,7 +134,7 @@ class GitHubIssuesPostDiffArcanistHook {
       $issue_card_id = null;
       $issue_column_id = null;
       foreach ($columns as $column) {
-        $ch = $this->createProjectCurlRequest("projects/$project_id/columns/".$column['id'].'/cards');
+        $ch = $this->createProjectCurlRequest("projects/columns/".$column['id'].'/cards');
         $server_output = curl_exec($ch);
         curl_close($ch);
         if (!$this->checkCurlResponse($server_output)) {
@@ -160,7 +160,7 @@ class GitHubIssuesPostDiffArcanistHook {
         if ($issue_column_id != $column_name_to_id[$destination_column]) {
           $this->console->writeOut("github: Moving card to %s...\n", $destination_column);
 
-          $ch = $this->createProjectCurlRequest("projects/$project_id/columns/cards/$issue_card_id/moves");
+          $ch = $this->createProjectCurlRequest("projects/columns/cards/$issue_card_id/moves");
           curl_setopt($ch, CURLOPT_POST, 1);
           curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array(
             'position' => 'top',
