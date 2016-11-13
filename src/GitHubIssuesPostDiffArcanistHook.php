@@ -187,7 +187,7 @@ class GitHubIssuesPostDiffArcanistHook {
 
         $this->console->writeOut("github: Creating card on column %s...\n", $destination_column);
 
-        $ch = $this->createProjectCurlRequest("projects/$project_id/columns/".$column_name_to_id[$destination_column]."/cards");
+        $ch = $this->createProjectCurlRequest("projects/columns/".$column_name_to_id[$destination_column]."/cards");
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array(
           'content_id' => $issue['id'],
