@@ -219,6 +219,8 @@ class GitHubIssuesPostDiffArcanistHook {
       $labels = array_unique(array_merge($existingLabels, $add));
       $labels = array_values(array_diff($labels, $remove));
 
+      $should_post_comment = false;
+
       if (count(array_diff($labels, $existingLabels))) {
         $this->console->writeOut("github: Setting labels %s to issue #%s\n", implode(', ', $labels), $issueID);
 
